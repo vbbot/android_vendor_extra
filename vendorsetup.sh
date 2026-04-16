@@ -4,7 +4,7 @@ export WITH_GMS=true
 
 SF_USER="vbbot"
 SF_HOST="frs.sourceforge.net"
-SF_PROJECT="Q25-lineage"
+SF_PROJECT="q25-lineage"
 SF_PROJECT_ROOT="/home/frs/project/${SF_PROJECT}"
 
 JOBS=14
@@ -97,7 +97,9 @@ generate_ota_json() {
     sha256="$(sha256sum "${zip_path}" | cut -d' ' -f1)"
     local datetime
     datetime="$(stat -c%Y "${zip_path}")"
-    local url="https://sourceforge.net/projects/${SF_PROJECT}/files/${DEVICE}/${filename}/download"
+    local date_dir
+    date_dir="$(date +%m%d%Y)"
+    local url="https://sourceforge.net/projects/${SF_PROJECT}/files/lineage-23.2/${DEVICE}/${date_dir}/${filename}/download"
 
     local ota_path="${top}/vendor/extra/${OTA_FILE}"
 
@@ -120,17 +122,53 @@ OTAEOF
     echo "==> OTA JSON written: ${ota_path}"
 }
 
-# Rsyncs the zip to SourceForge file releases.
+# Uploads zip, images, and sha256sum to SourceForge via SFTP.
+# SFTP mkdir is done level-by-level (leading - suppresses already-exists errors)
+# because SF's rsync receiver is too old to create deep directory trees.
 upload_to_sf() {
     local zip_path="$1"
-    local filename
-    filename="$(basename "${zip_path}")"
+    local out_dir
+    out_dir="$(dirname "${zip_path}")"
 
-    echo "==> Uploading ${filename} to SourceForge..."
-    rsync -e "ssh -o StrictHostKeyChecking=accept-new" \
-          -avP --progress \
-          "${zip_path}" \
-          "${SF_USER}@${SF_HOST}:${SF_PROJECT_ROOT}/${DEVICE}/"
+    local files=()
+    for f in \
+        "${zip_path}" \
+        "${zip_path}.sha256sum" \
+        "${out_dir}/boot.img" \
+        "${out_dir}/dtbo.img" \
+        "${out_dir}/vbmeta.img" \
+        "${out_dir}/vendor_boot.img"; do
+        [[ -f "$f" ]] && files+=("$f")
+    done
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "[ERROR] No files found to upload. Pass the zip path as an argument."
+        return 1
+    fi
+
+    local date_dir
+    date_dir="$(date +%m%d%Y)"
+    local remote_dir="${SF_PROJECT_ROOT}/lineage-23.2/${DEVICE}/${date_dir}"
+
+    local sftp_batch
+    sftp_batch="$(mktemp)"
+    {
+        echo "-mkdir ${SF_PROJECT_ROOT}/lineage-23.2"
+        echo "-mkdir ${SF_PROJECT_ROOT}/lineage-23.2/${DEVICE}"
+        echo "-mkdir ${remote_dir}"
+        for f in "${files[@]}"; do
+            echo "put ${f} ${remote_dir}/"
+        done
+    } > "${sftp_batch}"
+
+    echo "==> Uploading ${#files[@]} file(s) to SourceForge (lineage-23.2/${DEVICE}/${date_dir})..."
+    sftp -o StrictHostKeyChecking=accept-new \
+         -b "${sftp_batch}" \
+         "${SF_USER}@${SF_HOST}"
+    local result=$?
+
+    rm -f "${sftp_batch}"
+    return ${result}
 }
 
 # Commits the updated OTA JSON and pushes to GitHub.
@@ -139,6 +177,7 @@ update_ota_github() {
 
     echo "==> Pushing OTA JSON to GitHub..."
     cd "${top}/vendor/extra"
+    git checkout lineage-23.2
     git add "${OTA_FILE}"
     git commit -m "ota: Q25 $(date +%Y%m%d)"
     git push github lineage-23.2
@@ -174,7 +213,7 @@ function release() {
     local build_start
     build_start=$(date +%s)
 
-    rm -rf "out/target/product/${DEVICE}"
+    # rm -rf "out/target/product/${DEVICE}"
     breakfast "${DEVICE}"
 
     if [[ $? -ne 0 ]]; then
