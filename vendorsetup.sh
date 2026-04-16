@@ -1,18 +1,15 @@
 #!/bin/bash
 
-# GMS / variant config — disabled for local vanilla builds
 export WITH_GMS=true
-# export GMS_MAKEFILE=gms.mk
-# export TARGET_UNOFFICIAL_BUILD_ID=GMS
 
-# SourceForge upload credentials — not used locally
-# SF_USER="aryannn999"
-# SF_HOST="frs.sourceforge.net"
-# SF_PROJECT_ROOT="/home/frs/project/noprincesshere"
+SF_USER="vbbot"
+SF_HOST="frs.sourceforge.net"
+SF_PROJECT="Q25-lineage"
+SF_PROJECT_ROOT="/home/frs/project/${SF_PROJECT}"
 
 JOBS=14
 DEVICE="Q25"
-
+OTA_FILE="ota/${DEVICE}.json"
 
 convertsecs() {
     ((h=${1}/3600))
@@ -20,11 +17,6 @@ convertsecs() {
     ((s=${1}%60))
     printf "%02d:%02d:%02d\n" $h $m $s
 }
-
-# Telegram notifications — disabled
-# notify_chat() { ... }
-# notify_channel() { ... }
-# upload_error_log() { ... }
 
 sync_repo() {
     local local_path="$1"
@@ -83,38 +75,89 @@ sync() {
 
     repo sync --force-sync -d -j"${JOBS}" || return 1
 
-    # Q25-specific repos
     sync_repo hardware/mediatek             "${lineage}/android_hardware_mediatek"
     sync_repo device/mediatek/sepolicy_vndr "${lineage}/android_device_mediatek_sepolicy_vndr"
     sync_repo packages/apps/ParanoidSense   "${pixelos}/packages_apps_ParanoidSense" "sixteen"
     sync_repo vendor/xelex/Q25              "https://github.com/TheMuppets/proprietary_vendor_xelex_Q25" "lineage-23.2"
-    # Not needed for Q25:
-    # sync_repo hardware/xiaomi              "${lineage}/android_hardware_xiaomi"
-    # sync_repo hardware/motorola            "${lineage}/android_hardware_motorola"
-    # sync_repo hardware/oplus               "${lineage}/android_hardware_oplus"
-    # sync_repo hardware/sony/timekeep       "${lineage}/android_hardware_sony_timekeep"
-    # sync_repo hardware/pixelworks/interfaces "${lineage}/android_hardware_pixelworks_interfaces"
-    # sync_repo packages/apps/DolbyAtmos     "${pixelos}/android_packages_apps_DolbyAtmos" "sixteen-qpr2"
 
     apply_patches
 
     echo "==> Sync complete."
 }
 
+# Generates ota/Q25.json from the build output zip and commits it.
+generate_ota_json() {
+    local zip_path="$1"
+    local top="${ANDROID_BUILD_TOP:-$PWD}"
+    local filename
+    filename="$(basename "${zip_path}")"
+    local size
+    size="$(stat -c%s "${zip_path}")"
+    local sha256
+    sha256="$(sha256sum "${zip_path}" | cut -d' ' -f1)"
+    local datetime
+    datetime="$(stat -c%Y "${zip_path}")"
+    local url="https://sourceforge.net/projects/${SF_PROJECT}/files/${DEVICE}/${filename}/download"
+
+    local ota_path="${top}/vendor/extra/${OTA_FILE}"
+
+    cat > "${ota_path}" <<OTAEOF
+{
+  "response": [
+    {
+      "datetime": ${datetime},
+      "filename": "${filename}",
+      "id": "${sha256}",
+      "romtype": "UNOFFICIAL",
+      "size": ${size},
+      "url": "${url}",
+      "version": "23.2"
+    }
+  ]
+}
+OTAEOF
+
+    echo "==> OTA JSON written: ${ota_path}"
+}
+
+# Rsyncs the zip to SourceForge file releases.
+upload_to_sf() {
+    local zip_path="$1"
+    local filename
+    filename="$(basename "${zip_path}")"
+
+    echo "==> Uploading ${filename} to SourceForge..."
+    rsync -e "ssh -o StrictHostKeyChecking=accept-new" \
+          -avP --progress \
+          "${zip_path}" \
+          "${SF_USER}@${SF_HOST}:${SF_PROJECT_ROOT}/${DEVICE}/"
+}
+
+# Commits the updated OTA JSON and pushes to GitHub.
+update_ota_github() {
+    local top="${ANDROID_BUILD_TOP:-$PWD}"
+
+    echo "==> Pushing OTA JSON to GitHub..."
+    cd "${top}/vendor/extra"
+    git add "${OTA_FILE}"
+    git commit -m "ota: Q25 $(date +%Y%m%d)"
+    git push github lineage-23.2
+    cd "${top}"
+}
+
 function release() {
     local skip_sync=false
     local skip_picks=false
+    local skip_upload=false
     local top="${ANDROID_BUILD_TOP:-$PWD}"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --no-sync)  skip_sync=true; shift ;;
-            --no-picks) skip_picks=true; shift ;;
-            -j*)        JOBS="${1#-j}"; shift ;;
-            # Unused flags kept for compatibility:
-            # --no-ota)   skip_ota=true; shift ;;
-            # --vanilla)  use_vanilla=true; shift ;;
-            *)          shift ;;
+            --no-sync)    skip_sync=true;   shift ;;
+            --no-picks)   skip_picks=true;  shift ;;
+            --no-upload)  skip_upload=true; shift ;;
+            -j*)          JOBS="${1#-j}";   shift ;;
+            *)            shift ;;
         esac
     done
 
@@ -128,47 +171,42 @@ function release() {
         apply_patches
     fi
 
-    # GMS variant setup — disabled
-    # export WITH_GMS=true
-    # export GMS_MAKEFILE=gms.mk
-    # export TARGET_UNOFFICIAL_BUILD_ID=GMS
-
-    local build_start=$(date +%s)
-
-    # notify_chat "Compilation for ${DEVICE} started on ${HOSTNAME}."
+    local build_start
+    build_start=$(date +%s)
 
     rm -rf "out/target/product/${DEVICE}"
     breakfast "${DEVICE}"
 
     if [[ $? -ne 0 ]]; then
         echo "[ERROR] breakfast failed for ${DEVICE}."
-        # upload_error_log "${DEVICE}" "breakfast failed"
-        rm -rf "out/target/product/${DEVICE}"
         return 1
     fi
 
     m bacon -j"${JOBS}"
     local result=$?
-    local build_end=$(date +%s)
-    local build_time=$(convertsecs "$((build_end - build_start))")
+    local build_end
+    build_end=$(date +%s)
+    local build_time
+    build_time=$(convertsecs "$((build_end - build_start))")
 
     if [[ ${result} -ne 0 ]]; then
         echo "[ERROR] Build failed for ${DEVICE}. Time: ${build_time}"
-        # upload_error_log "${DEVICE}" "build failed. Time: ${build_time}"
-        rm -rf "out/target/product/${DEVICE}"
         return 1
     fi
 
     echo "[INFO] Build complete for ${DEVICE}. Time: ${build_time}"
 
-    # notify_chat "Build complete for ${DEVICE}. Time: ${build_time}"
+    if [[ "${skip_upload}" == "false" ]]; then
+        local zip_path
+        zip_path="$(ls "${top}/out/target/product/${DEVICE}/lineage-"*.zip 2>/dev/null | grep -v ota | sort | tail -1)"
 
-    # OTA generation — disabled
-    # ...
+        if [[ -z "${zip_path}" ]]; then
+            echo "[ERROR] Could not find build zip — skipping upload."
+            return 1
+        fi
 
-    # SourceForge upload — disabled
-    # rsync -Ph "${out}/${filename}" "${SF_USER}@${SF_HOST}:${remote_dir}/"
-
-    # Release channel notification — disabled
-    # notify_channel "${release_msg}"
+        generate_ota_json "${zip_path}"
+        upload_to_sf "${zip_path}"
+        update_ota_github
+    fi
 }
