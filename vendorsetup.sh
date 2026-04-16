@@ -87,7 +87,7 @@ sync() {
     sync_repo hardware/mediatek             "${lineage}/android_hardware_mediatek"
     sync_repo device/mediatek/sepolicy_vndr "${lineage}/android_device_mediatek_sepolicy_vndr"
     sync_repo packages/apps/ParanoidSense   "${pixelos}/packages_apps_ParanoidSense" "sixteen"
-    sync_repo vendor/xelex/Q25              "${lineage}/android_vendor_xelex_Q25" "lineage-23.2"
+    sync_repo vendor/xelex/Q25              "https://github.com/TheMuppets/proprietary_vendor_xelex_Q25" "lineage-23.2"
     # Not needed for Q25:
     # sync_repo hardware/xiaomi              "${lineage}/android_hardware_xiaomi"
     # sync_repo hardware/motorola            "${lineage}/android_hardware_motorola"
