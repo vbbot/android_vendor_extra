@@ -34,7 +34,7 @@ index 5703f51..07526e3 100644
 @@ -261,6 +261,13 @@ PRODUCT_PACKAGES += \
      android.hardware.usb.gadget-service.mediatek \
      init.mt6789.usb.rc
- 
+
 +# Face Unlock
 +PRODUCT_PACKAGES += \
 +    ParanoidSense
@@ -52,13 +52,12 @@ index 82c2c44..ca5d83d 100644
 @@ -4,6 +4,9 @@ sys.brightness.disable_gamma_conversion=true
  # FOTA
  ro.fota.version=Q25_26.03.2026
- 
+
 +# Face Unlock
 +ro.face.sense_service=true
 +
  # IMS
  persist.dbg.volte_avail_ovr=1
  persist.dbg.vt_avail_ovr=1
--- 
+--
 2.43.0
-
