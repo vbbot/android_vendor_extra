@@ -1,0 +1,64 @@
+From 9ae14820cf3d2ce7f44058eba9462cee87204cb4 Mon Sep 17 00:00:00 2001
+From: Vasu Bhatia <git@vbh.ai>
+Date: Sun, 21 Jun 2026 21:23:03 +0200
+Subject: [PATCH] Q25: Add face unlock support
+
+- Declare android.hardware.biometrics.face feature so SystemServer
+  starts FaceService (gated on hasSystemFeature in SystemServer.java)
+- Include ParanoidSense and its required prebuilt libs/permissions
+- Set ro.face.sense_service=true so SenseUtils.canUseProvider()
+  returns true and the SenseProvider registers at boot
+
+Change-Id: I18ec95450138540dc325495709d6abc388b80272
+---
+ configs/permissions/android.hardware.biometrics.face.xml | 4 ++++
+ device.mk                                                | 7 +++++++
+ system_ext.prop                                          | 3 +++
+ 3 files changed, 14 insertions(+)
+ create mode 100644 configs/permissions/android.hardware.biometrics.face.xml
+
+diff --git a/configs/permissions/android.hardware.biometrics.face.xml b/configs/permissions/android.hardware.biometrics.face.xml
+new file mode 100644
+index 0000000..06d917e
+--- /dev/null
++++ b/configs/permissions/android.hardware.biometrics.face.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<permissions>
++    <feature name="android.hardware.biometrics.face" />
++</permissions>
+diff --git a/device.mk b/device.mk
+index 5703f51..07526e3 100644
+--- a/device.mk
++++ b/device.mk
+@@ -261,6 +261,13 @@ PRODUCT_PACKAGES += \
+     android.hardware.usb.gadget-service.mediatek \
+     init.mt6789.usb.rc
+ 
++# Face Unlock
++PRODUCT_PACKAGES += \
++    ParanoidSense
++
++PRODUCT_COPY_FILES += \
++    $(LOCAL_PATH)/configs/permissions/android.hardware.biometrics.face.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/android.hardware.biometrics.face.xml
++
+ # Vibrator
+ PRODUCT_PACKAGES += \
+     android.hardware.vibrator-service.legacy
+diff --git a/system_ext.prop b/system_ext.prop
+index 82c2c44..ca5d83d 100644
+--- a/system_ext.prop
++++ b/system_ext.prop
+@@ -4,6 +4,9 @@ sys.brightness.disable_gamma_conversion=true
+ # FOTA
+ ro.fota.version=Q25_26.03.2026
+ 
++# Face Unlock
++ro.face.sense_service=true
++
+ # IMS
+ persist.dbg.volte_avail_ovr=1
+ persist.dbg.vt_avail_ovr=1
+-- 
+2.43.0
+
