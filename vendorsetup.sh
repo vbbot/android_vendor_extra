@@ -177,6 +177,7 @@ update_ota_github() {
 
     echo "==> Pushing OTA JSON to GitHub..."
     cd "${top}/vendor/extra"
+    git remote set-url github git@github.com:vbbot/android_vendor_extra.git
     git checkout lineage-23.2
     git add "${OTA_FILE}"
     git commit -m "ota: Q25 $(date +%Y%m%d)"
@@ -204,9 +205,7 @@ function release() {
 
     if [[ "${skip_sync}" == "false" ]]; then
         sync
-    fi
-
-    if [[ "${skip_picks}" == "false" ]]; then
+    elif [[ "${skip_picks}" == "false" ]]; then
         apply_patches
     fi
 
