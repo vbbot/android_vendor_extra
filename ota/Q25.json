@@ -1,13 +1,11 @@
-{
-  "response": [
-    {
-      "datetime": 1783857697,
-      "filename": "lineage-23.2-20260712-UNOFFICIAL-Q25.zip",
-      "id": "c77c594d977d079f50c29e6176d0f8b969f7d4137ab0ab07920720fad4a86c8a",
-      "romtype": "UNOFFICIAL",
-      "size": 1175712791,
-      "url": "https://sourceforge.net/projects/q25-lineage/files/lineage-23.2/Q25/07122026/lineage-23.2-20260712-UNOFFICIAL-Q25.zip/download",
-      "version": "23.2"
-    }
-  ]
-}
+[
+  {
+    "datetime": 1783857697,
+    "filename": "lineage-23.2-20260712-UNOFFICIAL-Q25.zip",
+    "id": "c77c594d977d079f50c29e6176d0f8b969f7d4137ab0ab07920720fad4a86c8a",
+    "romtype": "UNOFFICIAL",
+    "size": 1175712791,
+    "url": "https://sourceforge.net/projects/q25-lineage/files/lineage-23.2/Q25/07122026/lineage-23.2-20260712-UNOFFICIAL-Q25.zip/download",
+    "version": "23.2"
+  }
+]

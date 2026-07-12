@@ -104,19 +104,17 @@ generate_ota_json() {
     local ota_path="${top}/vendor/extra/${OTA_FILE}"
 
     cat > "${ota_path}" <<OTAEOF
-{
-  "response": [
-    {
-      "datetime": ${datetime},
-      "filename": "${filename}",
-      "id": "${sha256}",
-      "romtype": "UNOFFICIAL",
-      "size": ${size},
-      "url": "${url}",
-      "version": "23.2"
-    }
-  ]
-}
+[
+  {
+    "datetime": ${datetime},
+    "filename": "${filename}",
+    "id": "${sha256}",
+    "romtype": "UNOFFICIAL",
+    "size": ${size},
+    "url": "${url}",
+    "version": "23.2"
+  }
+]
 OTAEOF
 
     echo "==> OTA JSON written: ${ota_path}"
