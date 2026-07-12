@@ -107,12 +107,16 @@ generate_ota_json() {
 [
   {
     "datetime": ${datetime},
-    "filename": "${filename}",
-    "id": "${sha256}",
-    "romtype": "UNOFFICIAL",
-    "size": ${size},
-    "url": "${url}",
-    "version": "23.2"
+    "type": "UNOFFICIAL",
+    "version": "23.2",
+    "files": [
+      {
+        "filename": "${filename}",
+        "sha256": "${sha256}",
+        "size": ${size},
+        "url": "${url}"
+      }
+    ]
   }
 ]
 OTAEOF
