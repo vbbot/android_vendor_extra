@@ -178,7 +178,9 @@ update_ota_github() {
     echo "==> Pushing OTA JSON to GitHub..."
     cd "${top}/vendor/extra"
     git remote set-url github git@github.com:vbbot/android_vendor_extra.git
+    git fetch github
     git checkout lineage-23.2
+    git reset --hard github/lineage-23.2
     git add "${OTA_FILE}"
     git commit -m "ota: Q25 $(date +%Y%m%d)"
     git push github lineage-23.2
